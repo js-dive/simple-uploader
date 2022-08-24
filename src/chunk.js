@@ -9,6 +9,12 @@ function Chunk (uploader, file, offset) {
   this.retries = 0
   this.pendingRetry = false
   this.preprocessState = 0
+  /**
+   * 读取阶段
+   * 0: 未读取
+   * 1: 正在读取中
+   * 2: 已读取
+   */
   this.readState = 0
   this.loaded = 0
   this.total = 0
@@ -18,6 +24,9 @@ function Chunk (uploader, file, offset) {
   this.xhr = null
 }
 
+/**
+ * chunk 状态枚举
+ */
 var STATUS = Chunk.STATUS = {
   PENDING: 'pending',
   UPLOADING: 'uploading',
@@ -29,6 +38,7 @@ var STATUS = Chunk.STATUS = {
   RETRY: 'retry'
 }
 
+// 定义一些Uploader的特有方法（原型）
 utils.extend(Chunk.prototype, {
 
   _event: function (evt, args) {
@@ -37,6 +47,9 @@ utils.extend(Chunk.prototype, {
     this.file._chunkEvent.apply(this.file, args)
   },
 
+  /**
+   * 计算被读取的终止字节的位置
+   */
   computeEndByte: function () {
     var endByte = Math.min(this.file.size, (this.offset + 1) * this.chunkSize)
     if (this.file.size - endByte < this.chunkSize && !this.uploader.opts.forceChunkSize) {
@@ -98,6 +111,7 @@ utils.extend(Chunk.prototype, {
     }
   },
 
+  // TODO: 看起来仅在单元测试中有使用？
   preprocessFinished: function () {
     // Compute the endByte after the preprocess function to allow an
     // implementer of preprocess to set the fileObj size
@@ -106,8 +120,12 @@ utils.extend(Chunk.prototype, {
     this.send()
   },
 
+  /**
+   * 似乎由默认的uploader.opts.readFileFn调用
+   * @param {*} bytes
+   */
   readFinished: function (bytes) {
-    this.readState = 2
+    this.readState = 2 // 读取时标记读取状态为已读取
     this.bytes = bytes
     this.send()
   },
@@ -115,6 +133,9 @@ utils.extend(Chunk.prototype, {
   send: function () {
     var preprocess = this.uploader.opts.preprocess
     var read = this.uploader.opts.readFileFn
+
+    // 发请求前
+    // 1. 检查文件是否被预处理过
     if (utils.isFunction(preprocess)) {
       switch (this.preprocessState) {
         case 0:
@@ -125,31 +146,42 @@ utils.extend(Chunk.prototype, {
           return
       }
     }
+    // 2. 检查chunk是否已被读取
     switch (this.readState) {
       case 0:
         this.readState = 1
+        // 读取文件字节？- 默认 uploader.opts.readFileFn 函数中会调用 this.readFinished 方法
         read(this.file, this.file.fileType, this.startByte, this.endByte, this)
         return
       case 1:
         return
     }
+    // 3. 检查chunk是否被测试过
     if (this.uploader.opts.testChunks && !this.tested) {
       this.test()
       return
     }
 
+    // 4. 如果上述步骤没有被打断，则继续发请求
     this.loaded = 0
     this.total = 0
     this.pendingRetry = false
 
     // Set up request and listen for event
     this.xhr = new XMLHttpRequest()
+    // 添加上传进度事件监听
     this.xhr.upload.addEventListener('progress', progressHandler, false)
+    // 添加请求完成事件监听
     this.xhr.addEventListener('load', doneHandler, false)
     this.xhr.addEventListener('error', doneHandler, false)
 
+    // TODO: 调用uploader.opts.uploadMethod方法 - 为什么是个函数？
     var uploadMethod = utils.evalOpts(this.uploader.opts.uploadMethod, this.file, this)
+
+    // TODO: 准备prepareXhrRequest？
     var data = this.prepareXhrRequest(uploadMethod, false, this.uploader.opts.method, this.bytes)
+
+    // 发出请求
     this.xhr.send(data)
 
     var $ = this
