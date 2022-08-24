@@ -55,6 +55,7 @@ function Uploader (opts) {
 
   this.preventEvent = utils.bind(this._preventEvent, this)
 
+  // 调用File的构造函数，以在Uploader类上设置一些有关File的属性
   File.call(this, this)
 }
 
@@ -70,6 +71,9 @@ var webAPIFileRead = function (fileObj, fileType, startByte, endByte, chunk) {
 
 Uploader.version = version
 
+/**
+ * 默认options
+ */
 Uploader.defaults = {
   chunkSize: 1024 * 1024,
   forceChunkSize: false,
@@ -112,10 +116,13 @@ Uploader.event = event
 Uploader.File = File
 Uploader.Chunk = Chunk
 
+// 使Uploader继承一些来自File、event上的方法
 // inherit file
 Uploader.prototype = utils.extend({}, File.prototype)
 // inherit event
 utils.extend(Uploader.prototype, event)
+
+// 定义一些Uploader的特有方法（原型）
 utils.extend(Uploader.prototype, {
 
   constructor: Uploader,
@@ -137,6 +144,11 @@ utils.extend(Uploader.prototype, {
     }, this)
   },
 
+  /**
+   * 添加文件
+   * @param {*} files
+   * @param {*} evt
+   */
   addFiles: function (files, evt) {
     var _files = []
     var oldFileListLen = this.fileList.length
@@ -159,15 +171,20 @@ utils.extend(Uploader.prototype, {
     }, this)
     // get new fileList
     var newFileList = this.fileList.slice(oldFileListLen)
+
+    // 如果'filesAdded'事件监听器返回true - 允许上传
     if (this._trigger('filesAdded', _files, newFileList, evt)) {
       utils.each(_files, function (file) {
+        // 如果是单选模式，则删除原有文件
         if (this.opts.singleFile && this.files.length > 0) {
           this.removeFile(this.files[0])
         }
+        // 加入新文件
         this.files.push(file)
       }, this)
       this._trigger('filesSubmitted', _files, newFileList, evt)
     } else {
+      // 如果'filesAdded'事件监听器返回false - 禁止上传
       utils.each(newFileList, function (file) {
         File.prototype.removeFile.call(this, file)
       }, this)
@@ -330,6 +347,8 @@ utils.extend(Uploader.prototype, {
 
   /**
    * Assign a browse action to one or more DOM nodes.
+   * 指定一些用于点击后开启文件选择器的DOM节点
+   *
    * @function
    * @param {Element|Array.<Element>} domNodes
    * @param {boolean} isDirectory Pass in true to allow directories to
@@ -381,6 +400,7 @@ utils.extend(Uploader.prototype, {
         input.setAttribute(key, value)
       })
       // When new files are added, simply append them to the overall list
+      // 文件被添加后，只需简单地加入文件列表即可
       var that = this
       input.addEventListener('change', function (e) {
         that._trigger(e.type, e)
@@ -398,14 +418,17 @@ utils.extend(Uploader.prototype, {
       evt.stopPropagation()
     }
     evt.preventDefault()
+    // 文件还可以通过拖拽的方式被拖入
     this._parseDataTransfer(evt.dataTransfer, evt)
   },
 
   _parseDataTransfer: function (dataTransfer, evt) {
     if (dataTransfer.items && dataTransfer.items[0] &&
       dataTransfer.items[0].webkitGetAsEntry) {
+      // TODO: 如果拿到的是目录，则进行一些处理
       this.webkitReadDataTransfer(dataTransfer, evt)
     } else {
+      // 如果拿到的是普通文件，直接加入列表
       this.addFiles(dataTransfer.files, evt)
     }
   },
