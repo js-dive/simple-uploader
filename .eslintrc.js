@@ -10,6 +10,8 @@ module.exports = {
     // allow async-await
     'generator-star-spacing': 0,
     'no-tabs': 0,
-    'space-before-function-paren': 0
+    'space-before-function-paren': 0,
+
+    'no-debugger': 0
   }
 }
