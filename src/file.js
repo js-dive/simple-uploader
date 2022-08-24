@@ -110,6 +110,10 @@ utils.extend(File.prototype, {
     }
   },
 
+  /**
+   * TODO: 测量上传速度
+   * @returns
+   */
   _measureSpeed: function () {
     var smoothingFactor = this.uploader.opts.speedSmoothingFactor
     var timeSpan = Date.now() - this._lastProgressCallback
