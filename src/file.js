@@ -82,6 +82,7 @@ utils.extend(File.prototype, {
     }
   },
 
+  // 遍历访问文件列表、文件列表下的chunk列表
   _eachAccess: function (eachFn, fileFn) {
     if (this.isFolder) {
       utils.each(this.files, function (f, i) {
@@ -99,12 +100,16 @@ utils.extend(File.prototype, {
       opts.initFileFn.call(this, this)
     }
 
+    // 中止上传
     this.abort(true)
+    // 重置错误
     this._resetError()
     // Rebuild stack of chunks from file
     this._prevProgress = 0
     var round = opts.forceChunkSize ? Math.ceil : Math.floor
+    // 计算chunk数量
     var chunks = Math.max(round(this.size / opts.chunkSize), 1)
+    // 把整个文件分为多个chunk，放入到chunks数组中
     for (var offset = 0; offset < chunks; offset++) {
       this.chunks.push(new Chunk(this.uploader, this, offset))
     }
@@ -244,8 +249,10 @@ utils.extend(File.prototype, {
 
   isComplete: function () {
     if (!this.completed) {
+      // 是否已完成flag
       var outstanding = false
       this._eachAccess(function (file) {
+        // 如果有任一文件没有完成，即未完成
         if (!file.isComplete()) {
           outstanding = true
           return false
@@ -257,6 +264,7 @@ utils.extend(File.prototype, {
           var STATUS = Chunk.STATUS
           utils.each(this.chunks, function (chunk) {
             var status = chunk.status()
+            // 如果有任一chunk状态不是完成，即未完成
             if (status === STATUS.ERROR || status === STATUS.PENDING || status === STATUS.UPLOADING || status === STATUS.READING || chunk.preprocessState === 1 || chunk.readState === 1) {
               outstanding = true
               return false
@@ -294,7 +302,7 @@ utils.extend(File.prototype, {
     }, function () {
       this.paused = false
       this.aborted = false
-      this.uploader.upload()
+      this.uploader.upload() //
     })
     this.paused = false
     this.aborted = false
@@ -330,6 +338,11 @@ utils.extend(File.prototype, {
     this.uploader.upload()
   },
 
+  /**
+   * 中止上传
+   * @param {*} reset 是否重置
+   * @returns
+   */
   abort: function (reset) {
     if (this.aborted) {
       return

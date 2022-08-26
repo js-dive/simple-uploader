@@ -160,6 +160,7 @@ utils.extend(Uploader.prototype, {
     // get new fileList
     var newFileList = this.fileList.slice(oldFileListLen)
     if (this._trigger('filesAdded', _files, newFileList, evt)) {
+      //
       utils.each(_files, function (file) {
         if (this.opts.singleFile && this.files.length > 0) {
           this.removeFile(this.files[0])
@@ -212,25 +213,30 @@ utils.extend(Uploader.prototype, {
     return ret
   },
 
+  // 上传下一个chunk
   uploadNextChunk: function (preventEvents) {
     var found = false
     var pendingStatus = Chunk.STATUS.PENDING
     var checkChunkUploaded = this.uploader.opts.checkChunkUploadedByResponse
     if (this.opts.prioritizeFirstAndLastChunk) {
       utils.each(this.files, function (file) {
+        // 如果文件已暂停，就什么也不做
         if (file.paused) {
           return
         }
+        // 如果还未收到第一个chunk的响应，就什么也不做
         if (checkChunkUploaded && !file._firstResponse && file.isUploading()) {
           // waiting for current file's first chunk response
           return
         }
         if (file.chunks.length && file.chunks[0].status() === pendingStatus) {
+          // TODO: 发送
           file.chunks[0].send()
           found = true
           return false
         }
         if (file.chunks.length > 1 && file.chunks[file.chunks.length - 1].status() === pendingStatus) {
+          // TODO: 发送
           file.chunks[file.chunks.length - 1].send()
           found = true
           return false
@@ -242,6 +248,7 @@ utils.extend(Uploader.prototype, {
     }
 
     // Now, simply look for the next, best thing to upload
+    // 找到下一个可被上传的任务
     utils.each(this.files, function (file) {
       if (!file.paused) {
         if (checkChunkUploaded && !file._firstResponse && file.isUploading()) {
@@ -250,6 +257,7 @@ utils.extend(Uploader.prototype, {
         }
         utils.each(file.chunks, function (chunk) {
           if (chunk.status() === pendingStatus) {
+            // TODO: 发出请求
             chunk.send()
             found = true
             return false
@@ -265,6 +273,7 @@ utils.extend(Uploader.prototype, {
     }
 
     // The are no more outstanding chunks to upload, check is everything is done
+    // 没有未完成的chunk了；检查一下是不是都已经完成了
     var outstanding = false
     utils.each(this.files, function (file) {
       if (!file.isComplete()) {
@@ -282,14 +291,21 @@ utils.extend(Uploader.prototype, {
     return outstanding
   },
 
+  /**
+   * 开始上传，在外部调用
+   * @param {*} preventEvents
+   * @returns
+   */
   upload: function (preventEvents) {
     // Make sure we don't start too many uploads at once
+    // 检查是否满足传下一个chunk的条件
     var ret = this._shouldUploadNext()
     if (ret === false) {
       return
     }
     !preventEvents && this._trigger('uploadStart')
     var started = false
+    // 如果num小于当前并发数，即还可以发起新的上传
     for (var num = 1; num <= this.opts.simultaneousUploads - ret; num++) {
       started = this.uploadNextChunk(!preventEvents) || started
       if (!started && preventEvents) {
@@ -304,18 +320,20 @@ utils.extend(Uploader.prototype, {
 
   /**
    * should upload next chunk
+   * 检查是否满足传下一个chunk的条件
+   *
    * @function
    * @returns {Boolean|Number}
    */
   _shouldUploadNext: function () {
     var num = 0
     var should = true
-    var simultaneousUploads = this.opts.simultaneousUploads
+    var simultaneousUploads = this.opts.simultaneousUploads // 并发上传量
     var uploadingStatus = Chunk.STATUS.UPLOADING
     utils.each(this.files, function (file) {
       utils.each(file.chunks, function (chunk) {
         if (chunk.status() === uploadingStatus) {
-          num++
+          num++ // 并发过多，则认为不再上传下一chunk
           if (num >= simultaneousUploads) {
             should = false
             return false
@@ -325,11 +343,14 @@ utils.extend(Uploader.prototype, {
       return should
     })
     // if should is true then return uploading chunks's length
+    // 如果should为true，则返回正在上传的chunk数
     return should && num
   },
 
   /**
    * Assign a browse action to one or more DOM nodes.
+   * 绑定用于触发选择文件的动作 - 点击事件及拖放事件
+   *
    * @function
    * @param {Element|Array.<Element>} domNodes
    * @param {boolean} isDirectory Pass in true to allow directories to
@@ -402,14 +423,21 @@ utils.extend(Uploader.prototype, {
   },
 
   _parseDataTransfer: function (dataTransfer, evt) {
+    // 如果选择的是目录
     if (dataTransfer.items && dataTransfer.items[0] &&
       dataTransfer.items[0].webkitGetAsEntry) {
       this.webkitReadDataTransfer(dataTransfer, evt)
     } else {
+      // 否则如果选择的是文件
       this.addFiles(dataTransfer.files, evt)
     }
   },
 
+  /**
+   * 读取文件目录
+   * @param {*} dataTransfer 
+   * @param {*} evt 
+   */
   webkitReadDataTransfer: function (dataTransfer, evt) {
     var self = this
     var queue = dataTransfer.items.length
@@ -481,6 +509,8 @@ utils.extend(Uploader.prototype, {
   },
 
   /**
+   * 绑定一个或多个DOM作为拖放目标
+   *
    * Assign one or more DOM nodes as a drop target.
    * @function
    * @param {Element|Array.<Element>} domNodes
@@ -496,6 +526,8 @@ utils.extend(Uploader.prototype, {
   },
 
   /**
+   * 取消为DOM绑定拖放
+   *
    * Un-assign drop event from DOM nodes
    * @function
    * @param domNodes

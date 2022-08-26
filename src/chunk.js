@@ -60,6 +60,7 @@ utils.extend(Chunk.prototype, {
     }
   },
 
+  // 拼接参数
   getTarget: function (target, params) {
     if (!params.length) {
       return target
@@ -112,6 +113,10 @@ utils.extend(Chunk.prototype, {
     this.send()
   },
 
+  /**
+   * 发出chunk
+   * @returns
+   */
   send: function () {
     var preprocess = this.uploader.opts.preprocess
     var read = this.uploader.opts.readFileFn
@@ -149,7 +154,10 @@ utils.extend(Chunk.prototype, {
     this.xhr.addEventListener('error', doneHandler, false)
 
     var uploadMethod = utils.evalOpts(this.uploader.opts.uploadMethod, this.file, this)
+
+    // 准备http请求
     var data = this.prepareXhrRequest(uploadMethod, false, this.uploader.opts.method, this.bytes)
+    // 然后把请求发出去
     this.xhr.send(data)
 
     var $ = this
@@ -177,6 +185,7 @@ utils.extend(Chunk.prototype, {
         if (status === STATUS.SUCCESS || status === STATUS.ERROR) {
           // delete this.data
           $._event(status, res)
+          // 这一片chunk上传结束后继续下一片chunk的上传
           status === STATUS.ERROR && $.uploader.uploadNextChunk()
         } else {
           $._event(STATUS.RETRY, res)
